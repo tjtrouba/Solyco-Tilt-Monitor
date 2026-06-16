@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solyco Wealth — Tactical Tilt Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Teko:wght@400;500;600&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ev:#355541;--ev2:#2a4434;--ev3:#1e3328;--ev4:#162619;
+  --sage:#9CAE87;--sage-l:#c8d4bb;--sage-xl:#e8f0e2;
+  --slate:#2E2925;--cream:#D3CCBC;--cream-l:#EDE8DF;--cream-b:#F5F2EC;
+  --white:#FFFFFF;--muted:#6B6560;--paper:#F3F0EB;
+  --green:#2D7A4F;--green-l:#E8F5EE;
+  --amber:#B8872A;--amber-l:#FBF3E6;
+  --red:#A9343A;--red-l:#F9EDED;
+  --blue:#2E4A6B;--blue-l:#EBF0F5;
+}
+html{background:var(--ev4);}
+body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--slate);min-height:100vh;}
+
+/* HEADER */
+.header{background:var(--ev3);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(156,174,135,0.08);}
+.header-left{display:flex;align-items:center;gap:16px;}
+.header-brand{font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;color:var(--white);}
+.header-divider{width:1px;height:16px;background:rgba(156,174,135,0.2);}
+.header-title{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(200,212,187,0.4);letter-spacing:.05em;}
+.header-right{display:flex;align-items:center;gap:16px;}
+.header-time{font-family:'Teko',sans-serif;font-weight:500;font-size:18px;color:var(--white);letter-spacing:.05em;}
+.header-date{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(200,212,187,0.3);}
+.refresh-btn{background:rgba(156,174,135,0.1);border:1px solid rgba(156,174,135,0.15);padding:6px 14px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);cursor:pointer;transition:all .2s;}
+.refresh-btn:hover{background:rgba(156,174,135,0.2);}
+
+/* ALERT BANNER */
+.alert-banner{padding:12px 32px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:12px;display:none;align-items:center;gap:10px;}
+.alert-banner.show{display:flex;}
+.alert-banner.warning{background:var(--amber-l);color:var(--amber);border-bottom:2px solid var(--amber);}
+.alert-banner.danger{background:var(--red-l);color:var(--red);border-bottom:2px solid var(--red);}
+.alert-banner.safe{background:var(--green-l);color:var(--green);border-bottom:2px solid var(--green);}
+.alert-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* MAIN */
+.main{max-width:1100px;margin:0 auto;padding:24px 32px;}
+
+/* FIRM STATUS ROW */
+.firm-status{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:20px;}
+.fs-card{padding:14px 14px;text-align:center;border:1px solid var(--cream-l);}
+.fs-card.inactive{background:var(--white);}
+.fs-card.watching{background:var(--amber-l);border-color:rgba(184,135,42,0.2);}
+.fs-card.active{background:var(--red-l);border-color:rgba(169,52,58,0.2);}
+.fs-tilt{font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.fs-card.watching .fs-tilt{color:var(--amber);}
+.fs-card.active .fs-tilt{color:var(--red);}
+.fs-name{font-family:'DM Sans',sans-serif;font-weight:600;font-size:11px;color:var(--slate);margin-bottom:4px;}
+.fs-status{display:inline-flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
+.status-dot{width:6px;height:6px;border-radius:50%;}
+.fs-card.inactive .status-dot{background:var(--green);}
+.fs-card.watching .status-dot{background:var(--amber);}
+.fs-card.active .status-dot{background:var(--red);}
+.fs-card.inactive .fs-status{color:var(--green);}
+.fs-card.watching .fs-status{color:var(--amber);}
+.fs-card.active .fs-status{color:var(--red);}
+
+/* TILT CARDS */
+.tilt-cards{display:flex;flex-direction:column;gap:3px;margin-bottom:20px;}
+.tilt-card{background:var(--white);border:1px solid var(--cream-l);border-left:4px solid var(--cream);overflow:hidden;}
+.tilt-card.watching{border-left-color:var(--amber);}
+.tilt-card.active{border-left-color:var(--red);}
+.tilt-card.inactive{border-left-color:var(--green);}
+
+.tc-header{padding:16px 20px;display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;cursor:pointer;transition:background .15s;}
+.tc-header:hover{background:var(--cream-b);}
+.tc-num{font-family:'Teko',sans-serif;font-weight:600;font-size:28px;color:var(--cream);line-height:1;}
+.tilt-card.watching .tc-num{color:var(--amber);}
+.tilt-card.active .tc-num{color:var(--red);}
+.tilt-card.inactive .tc-num{color:var(--green);}
+.tc-info{}
+.tc-name{font-family:'DM Sans',sans-serif;font-weight:600;font-size:13px;color:var(--slate);margin-bottom:2px;}
+.tc-trigger-summary{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);}
+.tc-right{display:flex;align-items:center;gap:12px;}
+.tc-badge{padding:4px 12px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.1em;text-transform:uppercase;}
+.badge-inactive{background:var(--green-l);color:var(--green);}
+.badge-watching{background:var(--amber-l);color:var(--amber);}
+.badge-active{background:var(--red-l);color:var(--red);}
+.tc-toggle{font-size:11px;color:var(--muted);transition:transform .2s;}
+.tc-toggle.open{transform:rotate(180deg);}
+
+.tc-body{display:none;border-top:1px solid var(--cream-l);}
+.tc-body.open{display:block;}
+
+/* METRICS GRID */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--cream-l);}
+.metric{background:var(--white);padding:16px 18px;}
+.metric-label{font-family:'DM Sans',sans-serif;font-weight:600;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.metric-value{font-family:'Teko',sans-serif;font-weight:500;font-size:30px;line-height:1;margin-bottom:2px;}
+.metric-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--muted);}
+.metric-threshold{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;margin-top:4px;}
+.mv-green{color:var(--green);}
+.mv-amber{color:var(--amber);}
+.mv-red{color:var(--red);}
+.mv-slate{color:var(--slate);}
+.mt-green{color:var(--green);}
+.mt-amber{color:var(--amber);}
+.mt-red{color:var(--red);}
+
+/* CONDITION ROWS */
+.conditions{padding:16px 18px;background:var(--cream-b);border-top:1px solid var(--cream-l);}
+.cond-label{font-family:'DM Sans',sans-serif;font-weight:600;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.cond-rows{display:flex;flex-direction:column;gap:6px;}
+.cond-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--white);border:1px solid var(--cream-l);}
+.cond-icon{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;margin-top:1px;}
+.ci-pass{background:var(--green-l);color:var(--green);}
+.ci-fail{background:var(--red-l);color:var(--red);}
+.ci-warn{background:var(--amber-l);color:var(--amber);}
+.ci-na{background:var(--cream-b);color:var(--muted);}
+.cond-content{flex:1;}
+.cond-title{font-family:'DM Sans',sans-serif;font-weight:600;font-size:12px;color:var(--slate);margin-bottom:2px;}
+.cond-detail{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);line-height:1.55;}
+.cond-detail strong{color:var(--slate);}
+.cond-progress{margin-top:8px;}
+.progress-bar-wrap{height:4px;background:var(--cream-l);border-radius:2px;overflow:hidden;margin-top:3px;}
+.progress-bar-fill{height:100%;border-radius:2px;transition:width .5s;}
+.pf-green{background:var(--green);}
+.pf-amber{background:var(--amber);}
+.pf-red{background:var(--red);}
+.progress-label{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--muted);display:flex;justify-content:space-between;margin-top:2px;}
+
+/* DATA SOURCES */
+.data-sources{padding:12px 18px;border-top:1px solid var(--cream-l);display:flex;gap:16px;flex-wrap:wrap;}
+.ds-item{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+.ds-dot{width:4px;height:4px;border-radius:50%;background:var(--sage);}
+
+/* LOADING STATE */
+.loading-overlay{position:fixed;inset:0;background:rgba(22,38,25,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;transition:opacity .3s;}
+.loading-overlay.hidden{opacity:0;pointer-events:none;}
+.loading-title{font-family:'Teko',sans-serif;font-weight:500;font-size:32px;color:var(--white);letter-spacing:.1em;margin-bottom:8px;}
+.loading-sub{font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(200,212,187,0.4);margin-bottom:24px;}
+.loading-items{display:flex;flex-direction:column;gap:6px;min-width:300px;}
+.li-item{display:flex;align-items:center;gap:10px;font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(200,212,187,0.4);}
+.li-item.loading{color:rgba(200,212,187,0.7);}
+.li-item.done{color:var(--sage);}
+.li-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.li-item.loading .li-dot{background:var(--amber);animation:pulse 1s infinite;}
+.li-item.done .li-dot{background:var(--sage);}
+
+/* FOOTER */
+.report-footer{background:var(--ev3);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;margin-top:24px;}
+.rf-left{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(200,212,187,0.25);line-height:1.6;}
+.rf-right{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(200,212,187,0.2);text-align:right;}
+
+/* ERROR STATE */
+.error-note{background:var(--amber-l);border:1px solid rgba(184,135,42,0.2);border-left:3px solid var(--amber);padding:10px 14px;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--amber);display:none;}
+.error-note.show{display:block;}
+
+@media(max-width:900px){
+  .firm-status{grid-template-columns:1fr 1fr;}
+  .metrics-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-title">Solyco Tilt Monitor</div>
+  <div class="loading-sub">Fetching live market data...</div>
+  <div class="loading-items">
+    <div class="li-item" id="li1"><div class="li-dot"></div>S&P 500 closing price & 52-week high</div>
+    <div class="li-item" id="li2"><div class="li-dot"></div>CBOE VIX index level</div>
+    <div class="li-item" id="li3"><div class="li-dot"></div>10-year / 2-year Treasury spread (T10Y2Y)</div>
+    <div class="li-item" id="li4"><div class="li-dot"></div>10-year Treasury yield (DGS10)</div>
+    <div class="li-item" id="li5"><div class="li-dot"></div>CPI-U trailing 12-month reading</div>
+    <div class="li-item" id="li6"><div class="li-dot"></div>High Yield OAS spread (BAMLH0A0HYM2)</div>
+    <div class="li-item" id="li7"><div class="li-dot"></div>Building tilt status report</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-brand">Solyco Wealth</div>
+    <div class="header-divider"></div>
+    <div class="header-title">Tactical Tilt Daily Monitor</div>
+  </div>
+  <div class="header-right">
+    <div>
+      <div class="header-time" id="headerTime">--:-- --</div>
+      <div class="header-date" id="headerDate">Loading...</div>
+    </div>
+    <button class="refresh-btn" onclick="runMonitor()">↺ Refresh</button>
+  </div>
+</div>
+
+<!-- ALERT BANNER -->
+<div class="alert-banner" id="alertBanner">
+  <div class="alert-dot"></div>
+  <span id="alertText"></span>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ERROR NOTE -->
+  <div class="error-note" id="errorNote">
+    ⚠ Some data sources returned errors or stale values. Review individual tilt conditions. FRED API may have rate limits — wait 60 seconds and refresh.
+  </div>
+
+  <!-- FIRM STATUS ROW -->
+  <div class="firm-status" id="firmStatus">
+    <div class="fs-card inactive" id="fs-t1">
+      <div class="fs-tilt">T1</div>
+      <div class="fs-name">Inflation</div>
+      <div class="fs-status"><div class="status-dot"></div><span>Loading...</span></div>
+    </div>
+    <div class="fs-card inactive" id="fs-t2">
+      <div class="fs-tilt">T2</div>
+      <div class="fs-name">Bear Market</div>
+      <div class="fs-status"><div class="status-dot"></div><span>Loading...</span></div>
+    </div>
+    <div class="fs-card inactive" id="fs-t3">
+      <div class="fs-tilt">T3</div>
+      <div class="fs-name">Credit Stress</div>
+      <div class="fs-status"><div class="status-dot"></div><span>Loading...</span></div>
+    </div>
+    <div class="fs-card inactive" id="fs-t4">
+      <div class="fs-tilt">T4</div>
+      <div class="fs-name">Volatility</div>
+      <div class="fs-status"><div class="status-dot"></div><span>Loading...</span></div>
+    </div>
+    <div class="fs-card inactive" id="fs-t5">
+      <div class="fs-tilt">T5</div>
+      <div class="fs-name">Yield Curve</div>
+      <div class="fs-status"><div class="status-dot"></div><span>Loading...</span></div>
+    </div>
+  </div>
+
+  <!-- TILT CARDS -->
+  <div class="tilt-cards" id="tiltCards">
+
+    <!-- T1 -->
+    <div class="tilt-card" id="tc-t1">
+      <div class="tc-header" onclick="toggleCard('t1')">
+        <div class="tc-num">T1</div>
+        <div class="tc-info">
+          <div class="tc-name">Inflation & Rising Rate Protection</div>
+          <div class="tc-trigger-summary">CPI-U ≥ 4.0% AND 10Y yield +100bps over 6 months · Monthly trigger (BLS release day)</div>
+        </div>
+        <div class="tc-right">
+          <div class="tc-badge badge-inactive" id="badge-t1">Loading</div>
+          <div class="tc-toggle" id="toggle-t1">▾</div>
+        </div>
+      </div>
+      <div class="tc-body" id="body-t1">
+        <div class="metrics-grid" id="metrics-t1">
+          <div class="metric"><div class="metric-label">CPI-U (Trailing 12M)</div><div class="metric-value mv-slate" id="m-cpi">--</div><div class="metric-sub">FRED CPIAUCSL</div><div class="metric-threshold" id="mt-cpi">Trigger: ≥ 4.0%</div></div>
+          <div class="metric"><div class="metric-label">10Y Yield (Current)</div><div class="metric-value mv-slate" id="m-dgs10-now">--</div><div class="metric-sub">FRED DGS10</div><div class="metric-threshold" id="mt-dgs10">vs. 6 months ago: --</div></div>
+          <div class="metric"><div class="metric-label">10Y Yield (6M Ago)</div><div class="metric-value mv-slate" id="m-dgs10-6m">--</div><div class="metric-sub">FRED DGS10 · -182 days</div><div class="metric-threshold" id="mt-dgs10-chg">Change: --</div></div>
+          <div class="metric"><div class="metric-label">Rate Rise (6M)</div><div class="metric-value mv-slate" id="m-rate-rise">--</div><div class="metric-sub">bps change</div><div class="metric-threshold" id="mt-rate-rise">Trigger: ≥ 100bps</div></div>
+        </div>
+        <div class="conditions" id="conds-t1">
+          <div class="cond-label">Entry conditions — both required simultaneously (monthly)</div>
+          <div class="cond-rows">
+            <div class="cond-row" id="cond-t1-1"><div class="cond-icon ci-na" id="ci-t1-1">?</div><div class="cond-content"><div class="cond-title">Condition 1 — CPI-U trailing 12M ≥ 4.0%</div><div class="cond-detail" id="cd-t1-1">Fetching BLS data...</div></div></div>
+            <div class="cond-row" id="cond-t1-2"><div class="cond-icon ci-na" id="ci-t1-2">?</div><div class="cond-content"><div class="cond-title">Condition 2 — 10Y yield risen ≥ 100bps over 6 months</div><div class="cond-detail" id="cd-t1-2">Fetching FRED DGS10...</div></div></div>
+          </div>
+        </div>
+        <div class="data-sources"><div class="ds-item"><div class="ds-dot"></div>BLS.gov CPI monthly release · FRED CPIAUCSL</div><div class="ds-item"><div class="ds-dot"></div>FRED DGS10 · 10-Year Treasury Constant Maturity</div><div class="ds-item"><div class="ds-dot"></div>Eligible: Preserve & Conservative only</div></div>
+      </div>
+    </div>
+
+    <!-- T2 -->
+    <div class="tilt-card" id="tc-t2">
+      <div class="tc-header" onclick="toggleCard('t2')">
+        <div class="tc-num">T2</div>
+        <div class="tc-info">
+          <div class="tc-name">Equity Bear Market Defensive</div>
+          <div class="tc-trigger-summary">S&P 500 ≥ 20% below 52-week high AND holds 20 consecutive trading days · Daily trigger</div>
+        </div>
+        <div class="tc-right">
+          <div class="tc-badge badge-inactive" id="badge-t2">Loading</div>
+          <div class="tc-toggle" id="toggle-t2">▾</div>
+        </div>
+      </div>
+      <div class="tc-body" id="body-t2">
+        <div class="metrics-grid" id="metrics-t2">
+          <div class="metric"><div class="metric-label">S&P 500 Close</div><div class="metric-value mv-slate" id="m-spx">--</div><div class="metric-sub">^GSPC closing</div><div class="metric-threshold" id="mt-spx">80% of 52W high: --</div></div>
+          <div class="metric"><div class="metric-label">52-Week High</div><div class="metric-value mv-slate" id="m-spx-52h">--</div><div class="metric-sub">Rolling 52W closing high</div><div class="metric-threshold" id="mt-spx-52h">Trigger level: --</div></div>
+          <div class="metric"><div class="metric-label">Drawdown from High</div><div class="metric-value mv-slate" id="m-spx-dd">--</div><div class="metric-sub">% below 52W high</div><div class="metric-threshold" id="mt-spx-dd">Trigger: ≥ −20.0%</div></div>
+          <div class="metric"><div class="metric-label">Consecutive Days ≥20%</div><div class="metric-value mv-slate" id="m-t2-days">0</div><div class="metric-sub">Trading days in drawdown</div><div class="metric-threshold" id="mt-t2-days">Required: 20 days</div></div>
+        </div>
+        <div class="conditions" id="conds-t2">
+          <div class="cond-label">Entry conditions — both required (daily)</div>
+          <div class="cond-rows">
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t2-1">?</div><div class="cond-content"><div class="cond-title">Condition 1 — S&P 500 ≥ 20% below 52-week closing high</div><div class="cond-detail" id="cd-t2-1">Fetching market data...</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t2-1" style="width:0%"></div></div><div class="progress-label"><span>0%</span><span id="pb-t2-1-pct">Drawdown: --</span></div></div></div></div>
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t2-2">?</div><div class="cond-content"><div class="cond-title">Condition 2 — Drawdown holds for 20 consecutive trading days</div><div class="cond-detail" id="cd-t2-2">Day count resets if market recovers above −20% before 20 days.</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t2-2" style="width:0%"></div></div><div class="progress-label"><span>Day 0</span><span id="pb-t2-2-pct">/ 20 required</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="data-sources"><div class="ds-item"><div class="ds-dot"></div>Yahoo Finance ^GSPC · Daily closing prices</div><div class="ds-item"><div class="ds-dot"></div>Rolling 52-week closing high recalculated daily</div><div class="ds-item"><div class="ds-dot"></div>Eligible: All five tiers</div></div>
+      </div>
+    </div>
+
+    <!-- T3 -->
+    <div class="tilt-card" id="tc-t3">
+      <div class="tc-header" onclick="toggleCard('t3')">
+        <div class="tc-num">T3</div>
+        <div class="tc-info">
+          <div class="tc-name">Credit Stress & Financial Contagion</div>
+          <div class="tc-trigger-summary">HY OAS ≥ 700bps AND widened ≥ 200bps over 60 days · Monthly trigger (1st business day)</div>
+        </div>
+        <div class="tc-right">
+          <div class="tc-badge badge-inactive" id="badge-t3">Loading</div>
+          <div class="tc-toggle" id="toggle-t3">▾</div>
+        </div>
+      </div>
+      <div class="tc-body" id="body-t3">
+        <div class="metrics-grid" id="metrics-t3">
+          <div class="metric"><div class="metric-label">HY OAS (Current)</div><div class="metric-value mv-slate" id="m-hy-now">--</div><div class="metric-sub">FRED BAMLH0A0HYM2 · bps</div><div class="metric-threshold" id="mt-hy-now">Trigger: ≥ 700bps</div></div>
+          <div class="metric"><div class="metric-label">HY OAS (60 Days Ago)</div><div class="metric-value mv-slate" id="m-hy-60d">--</div><div class="metric-sub">FRED · 60 calendar days prior</div><div class="metric-threshold" id="mt-hy-60d">For widening calc</div></div>
+          <div class="metric"><div class="metric-label">60-Day Widening</div><div class="metric-value mv-slate" id="m-hy-widen">--</div><div class="metric-sub">bps change over 60 days</div><div class="metric-threshold" id="mt-hy-widen">Trigger: ≥ 200bps</div></div>
+          <div class="metric"><div class="metric-label">Credit Environment</div><div class="metric-value mv-slate" style="font-size:16px;margin-top:4px;" id="m-credit-env">--</div><div class="metric-sub">Qualitative read</div><div class="metric-threshold" id="mt-credit-env">Based on OAS level</div></div>
+        </div>
+        <div class="conditions" id="conds-t3">
+          <div class="cond-label">Entry conditions — both required simultaneously (monthly — 1st business day)</div>
+          <div class="cond-rows">
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t3-1">?</div><div class="cond-content"><div class="cond-title">Condition 1 — HY OAS ≥ 700 basis points</div><div class="cond-detail" id="cd-t3-1">Fetching FRED HY spread data...</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t3-1" style="width:0%"></div></div><div class="progress-label"><span>0bps</span><span id="pb-t3-1-pct">/ 700bps trigger</span></div></div></div></div>
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t3-2">?</div><div class="cond-content"><div class="cond-title">Condition 2 — HY spread widened ≥ 200bps over prior 60 calendar days</div><div class="cond-detail" id="cd-t3-2">Fetching 60-day prior reading...</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t3-2" style="width:0%"></div></div><div class="progress-label"><span>0bps</span><span id="pb-t3-2-pct">/ 200bps required</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="data-sources"><div class="ds-item"><div class="ds-dot"></div>FRED BAMLH0A0HYM2 · ICE BofA US HY OAS</div><div class="ds-item"><div class="ds-dot"></div>Exit: OAS &lt; 500bps OR tightened ≥ 100bps over 30 days</div><div class="ds-item"><div class="ds-dot"></div>Eligible: All five tiers</div></div>
+      </div>
+    </div>
+
+    <!-- T4 -->
+    <div class="tilt-card" id="tc-t4">
+      <div class="tc-header" onclick="toggleCard('t4')">
+        <div class="tc-num">T4</div>
+        <div class="tc-info">
+          <div class="tc-name">Volatility Spike — Early Warning Defensive</div>
+          <div class="tc-trigger-summary">VIX &gt; 35 for 10 consecutive trading days · Daily trigger · Growth & Aggressive only</div>
+        </div>
+        <div class="tc-right">
+          <div class="tc-badge badge-inactive" id="badge-t4">Loading</div>
+          <div class="tc-toggle" id="toggle-t4">▾</div>
+        </div>
+      </div>
+      <div class="tc-body" id="body-t4">
+        <div class="metrics-grid" id="metrics-t4" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="metric"><div class="metric-label">VIX Close</div><div class="metric-value mv-slate" id="m-vix">--</div><div class="metric-sub">CBOE VIX · Closing value</div><div class="metric-threshold" id="mt-vix">Trigger: &gt; 35 | Exit: &lt; 25</div></div>
+          <div class="metric"><div class="metric-label">Consecutive Days &gt;35</div><div class="metric-value mv-slate" id="m-vix-days">0</div><div class="metric-sub">Trading days above 35</div><div class="metric-threshold" id="mt-vix-days">Required: 10 days</div></div>
+          <div class="metric"><div class="metric-label">VIX Regime</div><div class="metric-value mv-slate" style="font-size:16px;margin-top:4px;" id="m-vix-regime">--</div><div class="metric-sub">Qualitative assessment</div><div class="metric-threshold" id="mt-vix-regime">Based on VIX level</div></div>
+        </div>
+        <div class="conditions" id="conds-t4">
+          <div class="cond-label">Entry conditions — both required (daily) · Growth & Aggressive tiers only</div>
+          <div class="cond-rows">
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t4-1">?</div><div class="cond-content"><div class="cond-title">Condition 1 — CBOE VIX closing level &gt; 35</div><div class="cond-detail" id="cd-t4-1">Fetching VIX data...</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t4-1" style="width:0%"></div></div><div class="progress-label"><span>VIX: --</span><span id="pb-t4-1-pct">Trigger at 35</span></div></div></div></div>
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t4-2">?</div><div class="cond-content"><div class="cond-title">Condition 2 — VIX remains above 35 for 10 consecutive trading days</div><div class="cond-detail" id="cd-t4-2">Day count resets if VIX closes below 35 before 10 days.</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t4-2" style="width:0%"></div></div><div class="progress-label"><span>Day 0</span><span id="pb-t4-2-pct">/ 10 required</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="data-sources"><div class="ds-item"><div class="ds-dot"></div>CBOE VIX daily closing value · ^VIX</div><div class="ds-item"><div class="ds-dot"></div>Exit: VIX &lt; 25 for 10 consecutive days</div><div class="ds-item"><div class="ds-dot"></div>Can stack with T2 if both conditions confirmed</div></div>
+      </div>
+    </div>
+
+    <!-- T5 -->
+    <div class="tilt-card" id="tc-t5">
+      <div class="tc-header" onclick="toggleCard('t5')">
+        <div class="tc-num">T5</div>
+        <div class="tc-info">
+          <div class="tc-name">Yield Curve Inversion & Recession Signal</div>
+          <div class="tc-trigger-summary">T10Y2Y ≤ −0.25% for 60 consecutive calendar days · Daily monitoring · All five tiers</div>
+        </div>
+        <div class="tc-right">
+          <div class="tc-badge badge-inactive" id="badge-t5">Loading</div>
+          <div class="tc-toggle" id="toggle-t5">▾</div>
+        </div>
+      </div>
+      <div class="tc-body" id="body-t5">
+        <div class="metrics-grid" id="metrics-t5" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="metric"><div class="metric-label">T10Y2Y Spread</div><div class="metric-value mv-slate" id="m-t10y2y">--</div><div class="metric-sub">FRED T10Y2Y · %</div><div class="metric-threshold" id="mt-t10y2y">Trigger: ≤ −0.25%</div></div>
+          <div class="metric"><div class="metric-label">Days ≤ −0.25%</div><div class="metric-value mv-slate" id="m-t5-days">0</div><div class="metric-sub">Consecutive calendar days</div><div class="metric-threshold" id="mt-t5-days">Required: 60 days</div></div>
+          <div class="metric"><div class="metric-label">Curve Status</div><div class="metric-value mv-slate" style="font-size:16px;margin-top:4px;" id="m-curve-status">--</div><div class="metric-sub">Current shape</div><div class="metric-threshold" id="mt-curve-status">Signal read</div></div>
+        </div>
+        <div class="conditions" id="conds-t5">
+          <div class="cond-label">Entry conditions — both required (daily monitoring) · All five tiers · 24-month max duration</div>
+          <div class="cond-rows">
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t5-1">?</div><div class="cond-content"><div class="cond-title">Condition 1 — T10Y2Y spread ≤ −0.25% (more than 25bps inverted)</div><div class="cond-detail" id="cd-t5-1">Fetching FRED T10Y2Y data...</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t5-1" style="width:50%"></div></div><div class="progress-label"><span>Normal (positive)</span><span id="pb-t5-1-pct">Spread: --</span></div></div></div></div>
+            <div class="cond-row"><div class="cond-icon ci-na" id="ci-t5-2">?</div><div class="cond-content"><div class="cond-title">Condition 2 — Inversion holds for 60 consecutive calendar days</div><div class="cond-detail" id="cd-t5-2">Count resets if T10Y2Y rises above −0.25% before 60 days.</div><div class="cond-progress"><div class="progress-bar-wrap"><div class="progress-bar-fill pf-green" id="pb-t5-2" style="width:0%"></div></div><div class="progress-label"><span>Day 0</span><span id="pb-t5-2-pct">/ 60 required</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="data-sources"><div class="ds-item"><div class="ds-dot"></div>FRED T10Y2Y · 10Y minus 2Y Treasury spread · Daily</div><div class="ds-item"><div class="ds-dot"></div>Exit: T10Y2Y &gt; 0 for 30 consecutive calendar days OR IC review at 24 months</div><div class="ds-item"><div class="ds-dot"></div>Eligible: All five tiers</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="report-footer">
+    <div class="rf-left">
+      Solyco Wealth LLC · Tactical Tilt Framework v1.0 · Internal use only — not for distribution<br>
+      All triggers are quantitative and objective. No tilt activates without confirmed threshold breach for required duration.<br>
+      Clients must have opted in to tactical overlays. Review governance protocol before any tilt activation.
+    </div>
+    <div class="rf-right">
+      Data: FRED API · Yahoo Finance<br>
+      Generated: <span id="footerTime">--</span><br>
+      Derek Podolak · IC Chair
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// SOLYCO WEALTH — TACTICAL TILT MONITOR
+// Data sources: FRED API (free, no key required for basic series)
+//               Yahoo Finance via allorigins CORS proxy
+// ═══════════════════════════════════════════════════════════════════════════
+
+const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
+const FRED_KEY  = 'YOUR_FRED_API_KEY'; // Free at fred.stlouisfed.org/docs/api/api_key.html
+
+// ── Persistent state (localStorage for day counts) ──────────────────────
+function getState(key, def) {
+  try { const v = localStorage.getItem('solyco_tilt_' + key); return v !== null ? JSON.parse(v) : def; }
+  catch(e) { return def; }
+}
+function setState(key, val) {
+  try { localStorage.setItem('solyco_tilt_' + key, JSON.stringify(val)); } catch(e) {}
+}
+
+// ── Utility ──────────────────────────────────────────────────────────────
+function fmt(n, dec=2) { return typeof n === 'number' ? n.toFixed(dec) : '--'; }
+function fmtPct(n) { return typeof n === 'number' ? (n > 0 ? '+' : '') + n.toFixed(2) + '%' : '--'; }
+function fmtBps(n) { return typeof n === 'number' ? Math.round(n) + 'bps' : '--'; }
+function today() { return new Date().toISOString().split('T')[0]; }
+function daysAgo(n) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
+// ── Toggle card expand/collapse ──────────────────────────────────────────
+function toggleCard(id) {
+  const body    = document.getElementById('body-' + id);
+  const toggle  = document.getElementById('toggle-' + id);
+  const isOpen  = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+}
+
+// ── Update status card and badge ─────────────────────────────────────────
+function setTiltState(id, state) {
+  // state: 'inactive' | 'watching' | 'active'
+  const fsCard  = document.getElementById('fs-' + id);
+  const tcCard  = document.getElementById('tc-' + id);
+  const badge   = document.getElementById('badge-' + id);
+  const fsSpan  = fsCard.querySelector('.fs-status span');
+
+  fsCard.className  = 'fs-card ' + state;
+  tcCard.className  = 'tilt-card ' + state;
+  badge.className   = 'tc-badge badge-' + state;
+
+  const labels = { inactive: 'Inactive', watching: 'Watching', active: 'ACTIVE' };
+  badge.textContent  = labels[state] || state;
+  fsSpan.textContent = labels[state] || state;
+}
+
+function setCondition(ciId, cdId, status, text) {
+  const ci = document.getElementById(ciId);
+  const cd = document.getElementById(cdId);
+  if (!ci || !cd) return;
+  ci.className = 'cond-icon ci-' + status;
+  ci.textContent = status === 'pass' ? '✓' : status === 'fail' ? '✗' : status === 'warn' ? '!' : '?';
+  cd.innerHTML = text;
+}
+
+function setProgress(pbId, pctId, pct, label, color) {
+  const pb  = document.getElementById(pbId);
+  const pct2 = document.getElementById(pctId);
+  if (!pb || !pct2) return;
+  pb.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  pb.className = 'progress-bar-fill pf-' + (color || 'green');
+  pct2.textContent = label;
+}
+
+function setMetric(id, val, colorClass) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  if (colorClass) el.className = 'metric-value ' + colorClass;
+}
+
+function setMetricSub(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+// ── FRED fetch ───────────────────────────────────────────────────────────
+async function fetchFRED(series, startDate, endDate) {
+  const url = `${FRED_BASE}?series_id=${series}&api_key=${FRED_KEY}&file_type=json&observation_start=${startDate}&observation_end=${endDate || today()}&sort_order=desc&limit=100`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('FRED ' + r.status);
+    const d = await r.json();
+    return (d.observations || []).filter(o => o.value !== '.');
+  } catch(e) {
+    console.warn('FRED error', series, e);
+    return [];
+  }
+}
+
+async function getFREDLatest(series) {
+  const obs = await fetchFRED(series, daysAgo(30), today());
+  if (!obs.length) return null;
+  return { value: parseFloat(obs[0].value), date: obs[0].date };
+}
+
+async function getFREDAt(series, date) {
+  const obs = await fetchFRED(series, daysAgo(200), date);
+  if (!obs.length) return null;
+  return { value: parseFloat(obs[0].value), date: obs[0].date };
+}
+
+// ── Yahoo Finance via CORS proxy ─────────────────────────────────────────
+async function fetchYahoo(ticker) {
+  try {
+    const proxy = 'https://api.allorigins.win/get?url=';
+    const target = encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`);
+    const r = await fetch(proxy + target);
+    const wrap = await r.json();
+    const data = JSON.parse(wrap.contents);
+    const result = data?.chart?.result?.[0];
+    if (!result) return null;
+    const closes = result.indicators.quote[0].close;
+    const timestamps = result.timestamp;
+    const validPairs = closes.map((c,i) => c != null ? { close: c, ts: timestamps[i] } : null).filter(Boolean);
+    const latest = validPairs[validPairs.length - 1];
+    const high52w = Math.max(...validPairs.map(p => p.close));
+    return { close: latest.close, high52w, history: validPairs };
+  } catch(e) {
+    console.warn('Yahoo error', ticker, e);
+    return null;
+  }
+}
+
+// ── Loading step updater ──────────────────────────────────────────────────
+function stepLoading(step) {
+  for (let i = 1; i <= 7; i++) {
+    const el = document.getElementById('li' + i);
+    if (!el) continue;
+    if (i < step) el.className = 'li-item done';
+    else if (i === step) el.className = 'li-item loading';
+    else el.className = 'li-item';
+  }
+}
+
+// ── Alert banner ─────────────────────────────────────────────────────────
+function showAlert(type, text) {
+  const banner = document.getElementById('alertBanner');
+  banner.className = 'alert-banner show ' + type;
+  document.getElementById('alertText').textContent = text;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN MONITOR FUNCTION
+// ════════════════════════════════════════════════════════════════════════════
+async function runMonitor() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('alertBanner').classList.remove('show');
+  document.getElementById('errorNote').classList.remove('show');
+
+  let hasError = false;
+  const activeCount = [];
+  const watchingCount = [];
+
+  // ── Clock ──────────────────────────────────────────────────────────────
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('headerTime').textContent = timeStr;
+  document.getElementById('headerDate').textContent = dateStr;
+  document.getElementById('footerTime').textContent = now.toLocaleString();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // T1 — INFLATION & RISING RATE
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(1);
+  try {
+    // CPI
+    const cpiObs = await fetchFRED('CPIAUCSL', daysAgo(400), today());
+    let cpiYoY = null;
+    if (cpiObs.length >= 13) {
+      const cpiNow  = parseFloat(cpiObs[0].value);
+      const cpi12m  = parseFloat(cpiObs[12].value);
+      cpiYoY = ((cpiNow - cpi12m) / cpi12m) * 100;
+    }
+
+    stepLoading(2); // reuse step for DGS10
+    // 10Y yield
+    const dgs10now = await getFREDLatest('DGS10');
+    const dgs10ago = await getFREDAt('DGS10', daysAgo(182));
+    const riseInBps = (dgs10now && dgs10ago) ? (dgs10now.value - dgs10ago.value) * 100 : null;
+
+    // Update metrics
+    const cpiColor = cpiYoY == null ? 'mv-slate' : cpiYoY >= 4.0 ? 'mv-red' : cpiYoY >= 3.0 ? 'mv-amber' : 'mv-green';
+    setMetric('m-cpi', cpiYoY != null ? fmt(cpiYoY, 1) + '%' : '--', cpiColor);
+    setMetricSub('mt-cpi', 'Trigger: ≥ 4.0% · Current: ' + (cpiYoY != null ? fmt(cpiYoY,1) + '%' : '--'));
+
+    const yieldColor = dgs10now ? 'mv-slate' : 'mv-slate';
+    setMetric('m-dgs10-now', dgs10now ? fmt(dgs10now.value, 2) + '%' : '--', yieldColor);
+    setMetric('m-dgs10-6m', dgs10ago ? fmt(dgs10ago.value, 2) + '%' : '--', 'mv-slate');
+
+    const riseColor = riseInBps == null ? 'mv-slate' : riseInBps >= 100 ? 'mv-red' : riseInBps >= 50 ? 'mv-amber' : 'mv-green';
+    setMetric('m-rate-rise', riseInBps != null ? Math.round(riseInBps) + 'bps' : '--', riseColor);
+    setMetricSub('mt-dgs10', 'vs. 6M ago: ' + (dgs10ago ? fmt(dgs10ago.value,2) + '%' : '--'));
+    setMetricSub('mt-dgs10-chg', 'Change: ' + (riseInBps != null ? (riseInBps > 0 ? '+' : '') + Math.round(riseInBps) + 'bps' : '--'));
+    setMetricSub('mt-rate-rise', 'Trigger: ≥ 100bps · ' + (riseInBps != null ? Math.round(riseInBps) + 'bps' : '--'));
+
+    // Conditions
+    const c1_t1 = cpiYoY != null && cpiYoY >= 4.0;
+    const c2_t1 = riseInBps != null && riseInBps >= 100;
+    const c1_warn_t1 = cpiYoY != null && cpiYoY >= 3.0;
+    const c2_warn_t1 = riseInBps != null && riseInBps >= 60;
+
+    setCondition('ci-t1-1', 'cd-t1-1',
+      cpiYoY == null ? 'na' : c1_t1 ? 'fail' : c1_warn_t1 ? 'warn' : 'pass',
+      cpiYoY == null ? 'CPI data unavailable.' :
+      `CPI-U trailing 12M: <strong>${fmt(cpiYoY,2)}%</strong>. Trigger is ≥ 4.0%. ${c1_t1 ? '⚠ CONDITION MET.' : c1_warn_t1 ? 'Approaching — monitor closely.' : 'Well below trigger threshold.'}`
+    );
+    setCondition('ci-t1-2', 'cd-t1-2',
+      riseInBps == null ? 'na' : c2_t1 ? 'fail' : c2_warn_t1 ? 'warn' : 'pass',
+      riseInBps == null ? '10Y yield data unavailable.' :
+      `10Y yield rose <strong>${Math.round(riseInBps)}bps</strong> over 6 months (${dgs10ago ? fmt(dgs10ago.value,2) : '--'}% → ${dgs10now ? fmt(dgs10now.value,2) : '--'}%). Trigger is ≥ 100bps. ${c2_t1 ? '⚠ CONDITION MET.' : c2_warn_t1 ? 'Approaching — monitor.' : 'Below trigger.'}`
+    );
+
+    const t1state = (c1_t1 && c2_t1) ? 'active' : (c1_warn_t1 || c2_warn_t1) ? 'watching' : 'inactive';
+    setTiltState('t1', t1state);
+    if (t1state === 'active') activeCount.push('T1');
+    if (t1state === 'watching') watchingCount.push('T1');
+
+  } catch(e) {
+    console.error('T1 error', e);
+    hasError = true;
+    setTiltState('t1', 'inactive');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // T2 — BEAR MARKET
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(1);
+  try {
+    const spx = await fetchYahoo('%5EGSPC');
+    if (!spx) throw new Error('SPX unavailable');
+
+    const close   = spx.close;
+    const high52w = spx.high52w;
+    const dd      = ((close - high52w) / high52w) * 100;
+    const trigger20pct = dd <= -20.0;
+    const triggerLevel = high52w * 0.80;
+
+    setMetric('m-spx', '$' + Math.round(close).toLocaleString(), trigger20pct ? 'mv-red' : 'mv-slate');
+    setMetric('m-spx-52h', '$' + Math.round(high52w).toLocaleString(), 'mv-slate');
+    setMetric('m-spx-dd', fmt(dd, 2) + '%', dd <= -20 ? 'mv-red' : dd <= -15 ? 'mv-amber' : 'mv-green');
+    setMetricSub('mt-spx', '80% of 52W high: $' + Math.round(triggerLevel).toLocaleString());
+    setMetricSub('mt-spx-52h', 'Trigger level: $' + Math.round(triggerLevel).toLocaleString());
+    setMetricSub('mt-spx-dd', 'Trigger: ≥ −20.0% · Current: ' + fmt(dd,2) + '%');
+
+    // Day count (persisted)
+    let t2days = getState('t2_days', 0);
+    let t2startDate = getState('t2_start', null);
+    const todayStr = today();
+
+    if (trigger20pct) {
+      if (t2startDate !== todayStr) {
+        t2days++;
+        setState('t2_days', t2days);
+        setState('t2_start', todayStr);
+      }
+    } else {
+      t2days = 0;
+      t2startDate = null;
+      setState('t2_days', 0);
+      setState('t2_start', null);
+    }
+
+    setMetric('m-t2-days', t2days, t2days >= 20 ? 'mv-red' : t2days >= 10 ? 'mv-amber' : 'mv-slate');
+    setMetricSub('mt-t2-days', 'Required: 20 days · Current: ' + t2days + ' days');
+
+    const ddPct = Math.min(100, Math.abs(dd) / 20 * 100);
+    const ddColor = dd <= -20 ? 'red' : dd <= -15 ? 'amber' : 'green';
+    setProgress('pb-t2-1', 'pb-t2-1-pct', ddPct, 'Drawdown: ' + fmt(dd,2) + '%', ddColor);
+    setProgress('pb-t2-2', 'pb-t2-2-pct', (t2days / 20) * 100, `Day ${t2days} / 20 required`, t2days >= 20 ? 'red' : t2days >= 10 ? 'amber' : 'green');
+
+    const c1_t2 = trigger20pct;
+    const c2_t2 = t2days >= 20;
+
+    setCondition('ci-t2-1', 'cd-t2-1',
+      c1_t2 ? 'fail' : dd <= -15 ? 'warn' : 'pass',
+      `S&P 500 at $${Math.round(close).toLocaleString()}. 52-week closing high: $${Math.round(high52w).toLocaleString()}. Drawdown: <strong>${fmt(dd,2)}%</strong>. Trigger fires at −20.0% or below (≤ $${Math.round(triggerLevel).toLocaleString()}). ${c1_t2 ? '⚠ TRIGGER MET — begin day count.' : dd <= -15 ? 'Approaching — watch closely.' : 'Well above trigger.'}`
+    );
+    setCondition('ci-t2-2', 'cd-t2-2',
+      c2_t2 ? 'fail' : t2days >= 10 ? 'warn' : 'pass',
+      `<strong>${t2days} of 20</strong> consecutive trading days at or below −20% drawdown. ${c2_t2 ? '⚠ CONDITION MET — tilt activates.' : t2days > 0 ? 'Day count in progress. Resets if market recovers above −20%.' : 'Day count not started — drawdown threshold not yet breached.'}`
+    );
+
+    const t2state = (c1_t2 && c2_t2) ? 'active' : (dd <= -15 || t2days >= 5) ? 'watching' : 'inactive';
+    setTiltState('t2', t2state);
+    if (t2state === 'active') activeCount.push('T2');
+    if (t2state === 'watching') watchingCount.push('T2');
+
+  } catch(e) {
+    console.error('T2 error', e);
+    hasError = true;
+    setTiltState('t2', 'inactive');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // T3 — CREDIT STRESS
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(6);
+  try {
+    const hyNow = await getFREDLatest('BAMLH0A0HYM2');
+    const hy60d = await getFREDAt('BAMLH0A0HYM2', daysAgo(60));
+
+    const hyNowVal = hyNow ? hyNow.value : null;
+    const hy60dVal = hy60d ? hy60d.value : null;
+    const widenBps = (hyNowVal != null && hy60dVal != null) ? (hyNowVal - hy60dVal) * 100 : null;
+
+    const creditEnv = hyNowVal == null ? '--' :
+      hyNowVal >= 700 ? 'Severe Stress' :
+      hyNowVal >= 500 ? 'Elevated Stress' :
+      hyNowVal >= 350 ? 'Caution' :
+      hyNowVal >= 250 ? 'Moderate' : 'Benign';
+
+    const hyColor = hyNowVal == null ? 'mv-slate' : hyNowVal >= 700 ? 'mv-red' : hyNowVal >= 400 ? 'mv-amber' : 'mv-green';
+    const widenColor = widenBps == null ? 'mv-slate' : widenBps >= 200 ? 'mv-red' : widenBps >= 100 ? 'mv-amber' : 'mv-green';
+
+    setMetric('m-hy-now', hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--', hyColor);
+    setMetric('m-hy-60d', hy60dVal != null ? Math.round(hy60dVal * 100) + 'bps' : '--', 'mv-slate');
+    setMetric('m-hy-widen', widenBps != null ? (widenBps > 0 ? '+' : '') + Math.round(widenBps) + 'bps' : '--', widenColor);
+    setMetric('m-credit-env', creditEnv, hyNowVal != null && hyNowVal >= 700 ? 'mv-red' : hyNowVal != null && hyNowVal >= 400 ? 'mv-amber' : 'mv-green');
+    setMetricSub('mt-hy-now', 'Trigger: ≥ 700bps absolute · Current: ' + (hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--'));
+    setMetricSub('mt-hy-widen', 'Trigger: ≥ 200bps widening · Current: ' + (widenBps != null ? Math.round(widenBps) + 'bps' : '--'));
+    setMetricSub('mt-credit-env', 'Based on OAS level');
+
+    const c1_t3 = hyNowVal != null && hyNowVal * 100 >= 700;
+    const c2_t3 = widenBps != null && widenBps >= 200;
+    const c1_warn = hyNowVal != null && hyNowVal * 100 >= 450;
+    const c2_warn = widenBps != null && widenBps >= 100;
+
+    setProgress('pb-t3-1', 'pb-t3-1-pct', hyNowVal ? Math.min(100, (hyNowVal * 100) / 700 * 100) : 0, Math.round((hyNowVal || 0) * 100) + 'bps / 700bps trigger', c1_t3 ? 'red' : c1_warn ? 'amber' : 'green');
+    setProgress('pb-t3-2', 'pb-t3-2-pct', widenBps ? Math.min(100, Math.max(0, widenBps) / 200 * 100) : 0, (widenBps != null ? Math.round(widenBps) : '0') + 'bps / 200bps required', c2_t3 ? 'red' : c2_warn ? 'amber' : 'green');
+
+    setCondition('ci-t3-1', 'cd-t3-1',
+      hyNowVal == null ? 'na' : c1_t3 ? 'fail' : c1_warn ? 'warn' : 'pass',
+      hyNowVal == null ? 'HY OAS data unavailable.' :
+      `ICE BofA HY OAS: <strong>${Math.round(hyNowVal * 100)}bps</strong>. Trigger is ≥ 700bps. Credit environment: ${creditEnv}. ${c1_t3 ? '⚠ CONDITION MET.' : c1_warn ? 'Elevated but below trigger.' : 'Benign credit environment.'}`
+    );
+    setCondition('ci-t3-2', 'cd-t3-2',
+      widenBps == null ? 'na' : c2_t3 ? 'fail' : c2_warn ? 'warn' : 'pass',
+      widenBps == null ? '60-day prior data unavailable.' :
+      `HY OAS 60 days ago: ${hy60dVal != null ? Math.round(hy60dVal * 100) + 'bps' : '--'} → now: ${hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--'}. Change: <strong>${Math.round(widenBps)}bps</strong>. Trigger is ≥ 200bps widening. ${c2_t3 ? '⚠ CONDITION MET.' : c2_warn ? 'Widening — monitor.' : 'Spread stable or tightening.'}`
+    );
+
+    const t3state = (c1_t3 && c2_t3) ? 'active' : (c1_warn || c2_warn) ? 'watching' : 'inactive';
+    setTiltState('t3', t3state);
+    if (t3state === 'active') activeCount.push('T3');
+    if (t3state === 'watching') watchingCount.push('T3');
+
+  } catch(e) {
+    console.error('T3 error', e);
+    hasError = true;
+    setTiltState('t3', 'inactive');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // T4 — VIX / VOLATILITY
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(2);
+  try {
+    const vixData = await fetchYahoo('%5EVIX');
+    const vix = vixData ? vixData.close : null;
+
+    const vixRegime = vix == null ? '--' :
+      vix >= 45 ? 'Extreme Fear' :
+      vix >= 35 ? 'High Volatility' :
+      vix >= 25 ? 'Elevated' :
+      vix >= 15 ? 'Normal' : 'Complacent';
+
+    const vixColor = vix == null ? 'mv-slate' : vix >= 35 ? 'mv-red' : vix >= 25 ? 'mv-amber' : 'mv-green';
+    setMetric('m-vix', vix != null ? fmt(vix, 2) : '--', vixColor);
+    setMetric('m-vix-regime', vixRegime, vix != null && vix >= 35 ? 'mv-red' : vix != null && vix >= 25 ? 'mv-amber' : 'mv-green');
+    setMetricSub('mt-vix', 'Trigger: > 35 | Exit: < 25 · Current: ' + (vix != null ? fmt(vix, 2) : '--'));
+
+    // Day count
+    let t4days = getState('t4_days', 0);
+    let t4startDate = getState('t4_start', null);
+    const todayStr = today();
+    const trigger35 = vix != null && vix > 35;
+
+    if (trigger35) {
+      if (t4startDate !== todayStr) {
+        t4days++;
+        setState('t4_days', t4days);
+        setState('t4_start', todayStr);
+      }
+    } else {
+      t4days = 0;
+      setState('t4_days', 0);
+      setState('t4_start', null);
+    }
+
+    setMetric('m-vix-days', t4days, t4days >= 10 ? 'mv-red' : t4days >= 5 ? 'mv-amber' : 'mv-slate');
+    setMetricSub('mt-vix-days', 'Required: 10 days · Current: ' + t4days + ' days');
+
+    const c1_t4 = trigger35;
+    const c2_t4 = t4days >= 10;
+
+    setProgress('pb-t4-1', 'pb-t4-1-pct', vix ? Math.min(100, vix / 35 * 100) : 0, 'VIX: ' + (vix ? fmt(vix,1) : '--'), c1_t4 ? 'red' : vix > 25 ? 'amber' : 'green');
+    setProgress('pb-t4-2', 'pb-t4-2-pct', (t4days / 10) * 100, `Day ${t4days} / 10 required`, c2_t4 ? 'red' : t4days >= 5 ? 'amber' : 'green');
+
+    setCondition('ci-t4-1', 'cd-t4-1',
+      vix == null ? 'na' : c1_t4 ? 'fail' : vix > 25 ? 'warn' : 'pass',
+      vix == null ? 'VIX data unavailable.' :
+      `CBOE VIX closing level: <strong>${fmt(vix, 2)}</strong>. Regime: ${vixRegime}. Trigger fires above 35. Exit when VIX closes below 25. ${c1_t4 ? '⚠ VIX ABOVE 35 — begin day count.' : vix > 25 ? 'Elevated — watch for escalation.' : 'Normal volatility environment.'}`
+    );
+    setCondition('ci-t4-2', 'cd-t4-2',
+      c2_t4 ? 'fail' : t4days >= 5 ? 'warn' : 'pass',
+      `<strong>${t4days} of 10</strong> consecutive trading days with VIX closing above 35. ${c2_t4 ? '⚠ CONDITION MET — T4 activates (Growth & Aggressive only).' : t4days > 0 ? 'Day count in progress. Resets if VIX closes at or below 35.' : 'Day count not started.'}`
+    );
+
+    const t4state = (c1_t4 && c2_t4) ? 'active' : (vix > 25 || t4days >= 3) ? 'watching' : 'inactive';
+    setTiltState('t4', t4state);
+    if (t4state === 'active') activeCount.push('T4');
+    if (t4state === 'watching') watchingCount.push('T4');
+
+  } catch(e) {
+    console.error('T4 error', e);
+    hasError = true;
+    setTiltState('t4', 'inactive');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // T5 — YIELD CURVE INVERSION
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(3);
+  try {
+    const t10y2y = await getFREDLatest('T10Y2Y');
+    const spread = t10y2y ? t10y2y.value : null;
+
+    const curveStatus = spread == null ? '--' :
+      spread <= -0.25 ? 'Inverted (Signal)' :
+      spread <= 0 ? 'Inverted (Shallow)' :
+      spread <= 0.50 ? 'Flat' :
+      spread <= 1.5 ? 'Normal' : 'Steep';
+
+    const spreadColor = spread == null ? 'mv-slate' : spread <= -0.25 ? 'mv-red' : spread <= 0 ? 'mv-amber' : 'mv-green';
+    setMetric('m-t10y2y', spread != null ? (spread > 0 ? '+' : '') + fmt(spread, 2) + '%' : '--', spreadColor);
+    setMetric('m-curve-status', curveStatus, spread != null && spread <= -0.25 ? 'mv-red' : spread != null && spread <= 0 ? 'mv-amber' : 'mv-green');
+    setMetricSub('mt-t10y2y', 'Trigger: ≤ −0.25% · Current: ' + (spread != null ? fmt(spread, 2) + '%' : '--'));
+
+    // Day count (calendar days)
+    let t5days = getState('t5_days', 0);
+    let t5startDate = getState('t5_start', null);
+    const todayStr = today();
+    const trigger25 = spread != null && spread <= -0.25;
+
+    if (trigger25) {
+      if (t5startDate === null) {
+        setState('t5_start', todayStr);
+        t5days = 1;
+        setState('t5_days', 1);
+      } else {
+        const start = new Date(t5startDate);
+        const nowD = new Date();
+        const diffDays = Math.floor((nowD - start) / (1000 * 60 * 60 * 24));
+        t5days = diffDays + 1;
+        setState('t5_days', t5days);
+      }
+    } else {
+      t5days = 0;
+      setState('t5_days', 0);
+      setState('t5_start', null);
+    }
+
+    setMetric('m-t5-days', t5days, t5days >= 60 ? 'mv-red' : t5days >= 30 ? 'mv-amber' : 'mv-slate');
+    setMetricSub('mt-t5-days', 'Required: 60 calendar days · Current: ' + t5days + ' days');
+
+    const c1_t5 = trigger25;
+    const c2_t5 = t5days >= 60;
+
+    const spreadForBar = spread != null ? Math.min(100, Math.max(0, Math.abs(spread) / 0.25 * 100)) : 50;
+    setProgress('pb-t5-1', 'pb-t5-1-pct', spread != null ? spreadForBar : 50, 'Spread: ' + (spread != null ? fmt(spread,2) + '%' : '--'), c1_t5 ? 'red' : spread != null && spread <= 0 ? 'amber' : 'green');
+    setProgress('pb-t5-2', 'pb-t5-2-pct', (t5days / 60) * 100, `Day ${t5days} / 60 required`, c2_t5 ? 'red' : t5days >= 30 ? 'amber' : 'green');
+
+    setCondition('ci-t5-1', 'cd-t5-1',
+      spread == null ? 'na' : c1_t5 ? 'fail' : spread <= 0 ? 'warn' : 'pass',
+      spread == null ? 'T10Y2Y data unavailable.' :
+      `10Y−2Y Treasury spread: <strong>${fmt(spread, 2)}%</strong>. Yield curve shape: ${curveStatus}. Trigger fires when spread is ≤ −0.25%. ${c1_t5 ? '⚠ TRIGGER MET — begin 60-day calendar count.' : spread <= 0 ? 'Inverted but not yet at −25bps depth threshold.' : 'Yield curve is ' + curveStatus.toLowerCase() + ' — no signal.'}`
+    );
+    setCondition('ci-t5-2', 'cd-t5-2',
+      c2_t5 ? 'fail' : t5days >= 30 ? 'warn' : 'pass',
+      `<strong>${t5days} of 60</strong> consecutive calendar days with T10Y2Y ≤ −0.25%. ${c2_t5 ? '⚠ FULL CONDITION MET — T5 tilt activates across all five tiers. IC notification required.' : t5days > 0 ? 'Inversion clock running. Resets if spread rises above −0.25% before 60 days.' : 'Clock not started — inversion threshold not yet met.'}`
+    );
+
+    const t5state = (c1_t5 && c2_t5) ? 'active' : (spread != null && spread <= 0 || t5days >= 20) ? 'watching' : 'inactive';
+    setTiltState('t5', t5state);
+    if (t5state === 'active') activeCount.push('T5');
+    if (t5state === 'watching') watchingCount.push('T5');
+
+  } catch(e) {
+    console.error('T5 error', e);
+    hasError = true;
+    setTiltState('t5', 'inactive');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SUMMARY ALERT
+  // ══════════════════════════════════════════════════════════════════════
+  stepLoading(7);
+  if (activeCount.length > 0) {
+    showAlert('danger', `⚠ TILT ALERT — ${activeCount.join(', ')} ${activeCount.length === 1 ? 'is' : 'are'} ACTIVE. IC notification required. Client opt-in list must be reviewed before any trades.`);
+  } else if (watchingCount.length > 0) {
+    showAlert('warning', `Monitoring — ${watchingCount.join(', ')} approaching trigger threshold${watchingCount.length > 1 ? 's' : ''}. No action required today — continue daily monitoring.`);
+  } else {
+    showAlert('safe', 'All clear — No tilt conditions approaching trigger thresholds. All five tilts inactive. Continue standard weekly monitoring cadence.');
+  }
+
+  if (hasError) {
+    document.getElementById('errorNote').classList.add('show');
+  }
+
+  // Auto-expand any watching or active tilts
+  ['t1','t2','t3','t4','t5'].forEach(id => {
+    const card = document.getElementById('tc-' + id);
+    if (card && (card.classList.contains('watching') || card.classList.contains('active'))) {
+      document.getElementById('body-' + id).classList.add('open');
+      document.getElementById('toggle-' + id).classList.add('open');
+    }
+  });
+
+  // Hide loading
+  setTimeout(() => {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }, 600);
+}
+
+// ── Clock tick ────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const t = document.getElementById('headerTime');
+  if (t) t.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+setInterval(updateClock, 60000);
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', runMonitor);
+</script>
+</body>
+</html>
