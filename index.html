@@ -204,7 +204,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--slate)
 
   <!-- ERROR NOTE -->
   <div class="error-note" id="errorNote">
-    ⚠ Some data sources returned errors or stale values. Review individual tilt conditions. FRED API may have rate limits — wait 60 seconds and refresh.
+    ⚠ One or more series failed to update in the last data run. Any tilt showing "--" is NOT being monitored — do not treat it as inactive. Check the Actions tab on GitHub for the failed run.
   </div>
 
   <!-- FIRM STATUS ROW -->
@@ -413,21 +413,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--slate)
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
 // SOLYCO WEALTH — TACTICAL TILT MONITOR
-// Data sources: FRED API (free, no key required for basic series)
-//               Yahoo Finance via allorigins CORS proxy
+//
+// Data source: data.json, built server-side by the "Update Tilt Monitor Data"
+// GitHub Action (see fetch-data.js). That job pulls all six series from FRED,
+// computes the derived values, and commits the result to this repository.
+//
+// The browser therefore makes ONE request, to a file on its own origin.
+// No API key in the page. No CORS proxy. No rate limits.
+//
+// Consecutive-day counts (T2/T4/T5) are computed from the actual historical
+// series, NOT from localStorage — so they are correct regardless of whether
+// anyone has opened this page, and identical on every machine.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations';
-const FRED_KEY  = 'f1532d0a5717e06d8402247ce2b1748c';
-
-// ── Persistent state (localStorage for day counts) ──────────────────────
-function getState(key, def) {
-  try { const v = localStorage.getItem('solyco_tilt_' + key); return v !== null ? JSON.parse(v) : def; }
-  catch(e) { return def; }
-}
-function setState(key, val) {
-  try { localStorage.setItem('solyco_tilt_' + key, JSON.stringify(val)); } catch(e) {}
-}
+const DATA_URL = 'data.json';
 
 // ── Utility ──────────────────────────────────────────────────────────────
 function fmt(n, dec=2) { return typeof n === 'number' ? n.toFixed(dec) : '--'; }
@@ -495,52 +494,22 @@ function setMetricSub(id, text) {
   if (el) el.textContent = text;
 }
 
-// ── FRED fetch ───────────────────────────────────────────────────────────
-async function fetchFRED(series, startDate, endDate) {
-  const url = `${FRED_BASE}?series_id=${series}&api_key=${FRED_KEY}&file_type=json&observation_start=${startDate}&observation_end=${endDate || today()}&sort_order=desc&limit=100`;
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('FRED ' + r.status);
-    const d = await r.json();
-    return (d.observations || []).filter(o => o.value !== '.');
-  } catch(e) {
-    console.warn('FRED error', series, e);
-    return [];
+// ── Load the pre-built data file ─────────────────────────────────────────
+// Cache-busted so a hard-refresh always picks up the latest committed data.
+async function loadData() {
+  const r = await fetch(DATA_URL + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) {
+    throw new Error(
+      `Could not load ${DATA_URL} (HTTP ${r.status}). ` +
+      `The data job may not have run yet — check the Actions tab on GitHub.`
+    );
   }
+  return r.json();
 }
 
-async function getFREDLatest(series) {
-  const obs = await fetchFRED(series, daysAgo(30), today());
-  if (!obs.length) return null;
-  return { value: parseFloat(obs[0].value), date: obs[0].date };
-}
-
-async function getFREDAt(series, date) {
-  const obs = await fetchFRED(series, daysAgo(200), date);
-  if (!obs.length) return null;
-  return { value: parseFloat(obs[0].value), date: obs[0].date };
-}
-
-// ── Yahoo Finance via CORS proxy ─────────────────────────────────────────
-async function fetchYahoo(ticker) {
-  try {
-    const proxy = 'https://api.allorigins.win/get?url=';
-    const target = encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`);
-    const r = await fetch(proxy + target);
-    const wrap = await r.json();
-    const data = JSON.parse(wrap.contents);
-    const result = data?.chart?.result?.[0];
-    if (!result) return null;
-    const closes = result.indicators.quote[0].close;
-    const timestamps = result.timestamp;
-    const validPairs = closes.map((c,i) => c != null ? { close: c, ts: timestamps[i] } : null).filter(Boolean);
-    const latest = validPairs[validPairs.length - 1];
-    const high52w = Math.max(...validPairs.map(p => p.close));
-    return { close: latest.close, high52w, history: validPairs };
-  } catch(e) {
-    console.warn('Yahoo error', ticker, e);
-    return null;
-  }
+// Human-readable "as of" line for each metric
+function asOf(dateStr) {
+  return dateStr ? 'As of ' + dateStr : '';
 }
 
 // ── Loading step updater ──────────────────────────────────────────────────
@@ -579,27 +548,42 @@ async function runMonitor() {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   document.getElementById('headerTime').textContent = timeStr;
   document.getElementById('headerDate').textContent = dateStr;
-  document.getElementById('footerTime').textContent = now.toLocaleString();
+
+  // ── Load the pre-built data file (single request, same origin) ─────────
+  stepLoading(1);
+  let D;
+  try {
+    D = await loadData();
+  } catch(e) {
+    console.error('Data load failed', e);
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    showAlert('danger', '⚠ DATA UNAVAILABLE — ' + e.message + ' Do not use this page for tilt decisions until resolved.');
+    document.getElementById('errorNote').classList.add('show');
+    ['t1','t2','t3','t4','t5'].forEach(id => setTiltState(id, 'inactive'));
+    return;
+  }
+
+  // Stamp the footer with when the DATA was built, not when the page loaded.
+  const built = D.generated ? new Date(D.generated) : now;
+  document.getElementById('footerTime').textContent = built.toLocaleString();
+
+  // Any series that failed server-side gets surfaced, not swallowed.
+  if (D.errors && D.errors.length) {
+    hasError = true;
+    console.warn('Server-side data errors:', D.errors);
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // T1 — INFLATION & RISING RATE
   // ══════════════════════════════════════════════════════════════════════
-  stepLoading(1);
+  stepLoading(2);
   try {
-    // CPI
-    const cpiObs = await fetchFRED('CPIAUCSL', daysAgo(400), today());
-    let cpiYoY = null;
-    if (cpiObs.length >= 13) {
-      const cpiNow  = parseFloat(cpiObs[0].value);
-      const cpi12m  = parseFloat(cpiObs[12].value);
-      cpiYoY = ((cpiNow - cpi12m) / cpi12m) * 100;
-    }
+    if (!D.t1) throw new Error('T1 data missing');
 
-    stepLoading(2); // reuse step for DGS10
-    // 10Y yield
-    const dgs10now = await getFREDLatest('DGS10');
-    const dgs10ago = await getFREDAt('DGS10', daysAgo(182));
-    const riseInBps = (dgs10now && dgs10ago) ? (dgs10now.value - dgs10ago.value) * 100 : null;
+    const cpiYoY    = D.t1.cpiYoY;
+    const dgs10now  = { value: D.t1.dgs10,      date: D.t1.dgs10Date };
+    const dgs10ago  = { value: D.t1.dgs10Prior, date: D.t1.dgs10PriorDate };
+    const riseInBps = D.t1.riseBps;
 
     // Update metrics
     const cpiColor = cpiYoY == null ? 'mv-slate' : cpiYoY >= 4.0 ? 'mv-red' : cpiYoY >= 3.0 ? 'mv-amber' : 'mv-green';
@@ -647,14 +631,13 @@ async function runMonitor() {
   // ══════════════════════════════════════════════════════════════════════
   // T2 — BEAR MARKET
   // ══════════════════════════════════════════════════════════════════════
-  stepLoading(1);
+  stepLoading(3);
   try {
-    const spx = await fetchYahoo('%5EGSPC');
-    if (!spx) throw new Error('SPX unavailable');
+    if (!D.t2) throw new Error('T2 data missing');
 
-    const close   = spx.close;
-    const high52w = spx.high52w;
-    const dd      = ((close - high52w) / high52w) * 100;
+    const close   = D.t2.close;
+    const high52w = D.t2.high52w;
+    const dd      = D.t2.drawdown;
     const trigger20pct = dd <= -20.0;
     const triggerLevel = high52w * 0.80;
 
@@ -665,23 +648,8 @@ async function runMonitor() {
     setMetricSub('mt-spx-52h', 'Trigger level: $' + Math.round(triggerLevel).toLocaleString());
     setMetricSub('mt-spx-dd', 'Trigger: ≥ −20.0% · Current: ' + fmt(dd,2) + '%');
 
-    // Day count (persisted)
-    let t2days = getState('t2_days', 0);
-    let t2startDate = getState('t2_start', null);
-    const todayStr = today();
-
-    if (trigger20pct) {
-      if (t2startDate !== todayStr) {
-        t2days++;
-        setState('t2_days', t2days);
-        setState('t2_start', todayStr);
-      }
-    } else {
-      t2days = 0;
-      t2startDate = null;
-      setState('t2_days', 0);
-      setState('t2_start', null);
-    }
+    // Day count — computed server-side from the actual S&P 500 price history.
+    const t2days = D.t2.consecDays;
 
     setMetric('m-t2-days', t2days, t2days >= 20 ? 'mv-red' : t2days >= 10 ? 'mv-amber' : 'mv-slate');
     setMetricSub('mt-t2-days', 'Required: 20 days · Current: ' + t2days + ' days');
@@ -717,49 +685,51 @@ async function runMonitor() {
   // ══════════════════════════════════════════════════════════════════════
   // T3 — CREDIT STRESS
   // ══════════════════════════════════════════════════════════════════════
-  stepLoading(6);
+  stepLoading(4);
   try {
-    const hyNow = await getFREDLatest('BAMLH0A0HYM2');
-    const hy60d = await getFREDAt('BAMLH0A0HYM2', daysAgo(60));
+    if (!D.t3) throw new Error('T3 data missing');
 
-    const hyNowVal = hyNow ? hyNow.value : null;
-    const hy60dVal = hy60d ? hy60d.value : null;
-    const widenBps = (hyNowVal != null && hy60dVal != null) ? (hyNowVal - hy60dVal) * 100 : null;
+    // NOTE: data.json already carries these in BASIS POINTS. The old code
+    // multiplied by 100 at every use site; that conversion now happens once,
+    // server-side, in fetch-data.js.
+    const hyNowBps = D.t3.oasBps;
+    const hy60dBps = D.t3.oasPriorBps;
+    const widenBps = D.t3.widenBps;
 
-    const creditEnv = hyNowVal == null ? '--' :
-      hyNowVal >= 700 ? 'Severe Stress' :
-      hyNowVal >= 500 ? 'Elevated Stress' :
-      hyNowVal >= 350 ? 'Caution' :
-      hyNowVal >= 250 ? 'Moderate' : 'Benign';
+    const creditEnv = hyNowBps == null ? '--' :
+      hyNowBps >= 700 ? 'Severe Stress' :
+      hyNowBps >= 500 ? 'Elevated Stress' :
+      hyNowBps >= 350 ? 'Caution' :
+      hyNowBps >= 250 ? 'Moderate' : 'Benign';
 
-    const hyColor = hyNowVal == null ? 'mv-slate' : hyNowVal >= 700 ? 'mv-red' : hyNowVal >= 400 ? 'mv-amber' : 'mv-green';
+    const hyColor = hyNowBps == null ? 'mv-slate' : hyNowBps >= 700 ? 'mv-red' : hyNowBps >= 400 ? 'mv-amber' : 'mv-green';
     const widenColor = widenBps == null ? 'mv-slate' : widenBps >= 200 ? 'mv-red' : widenBps >= 100 ? 'mv-amber' : 'mv-green';
 
-    setMetric('m-hy-now', hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--', hyColor);
-    setMetric('m-hy-60d', hy60dVal != null ? Math.round(hy60dVal * 100) + 'bps' : '--', 'mv-slate');
+    setMetric('m-hy-now', hyNowBps != null ? Math.round(hyNowBps) + 'bps' : '--', hyColor);
+    setMetric('m-hy-60d', hy60dBps != null ? Math.round(hy60dBps) + 'bps' : '--', 'mv-slate');
     setMetric('m-hy-widen', widenBps != null ? (widenBps > 0 ? '+' : '') + Math.round(widenBps) + 'bps' : '--', widenColor);
-    setMetric('m-credit-env', creditEnv, hyNowVal != null && hyNowVal >= 700 ? 'mv-red' : hyNowVal != null && hyNowVal >= 400 ? 'mv-amber' : 'mv-green');
-    setMetricSub('mt-hy-now', 'Trigger: ≥ 700bps absolute · Current: ' + (hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--'));
+    setMetric('m-credit-env', creditEnv, hyNowBps != null && hyNowBps >= 700 ? 'mv-red' : hyNowBps != null && hyNowBps >= 400 ? 'mv-amber' : 'mv-green');
+    setMetricSub('mt-hy-now', 'Trigger: ≥ 700bps absolute · Current: ' + (hyNowBps != null ? Math.round(hyNowBps) + 'bps' : '--'));
     setMetricSub('mt-hy-widen', 'Trigger: ≥ 200bps widening · Current: ' + (widenBps != null ? Math.round(widenBps) + 'bps' : '--'));
-    setMetricSub('mt-credit-env', 'Based on OAS level');
+    setMetricSub('mt-credit-env', 'Based on OAS level · ' + asOf(D.t3.oasDate));
 
-    const c1_t3 = hyNowVal != null && hyNowVal * 100 >= 700;
+    const c1_t3 = hyNowBps != null && hyNowBps >= 700;
     const c2_t3 = widenBps != null && widenBps >= 200;
-    const c1_warn = hyNowVal != null && hyNowVal * 100 >= 450;
+    const c1_warn = hyNowBps != null && hyNowBps >= 450;
     const c2_warn = widenBps != null && widenBps >= 100;
 
-    setProgress('pb-t3-1', 'pb-t3-1-pct', hyNowVal ? Math.min(100, (hyNowVal * 100) / 700 * 100) : 0, Math.round((hyNowVal || 0) * 100) + 'bps / 700bps trigger', c1_t3 ? 'red' : c1_warn ? 'amber' : 'green');
+    setProgress('pb-t3-1', 'pb-t3-1-pct', hyNowBps ? Math.min(100, hyNowBps / 700 * 100) : 0, Math.round(hyNowBps || 0) + 'bps / 700bps trigger', c1_t3 ? 'red' : c1_warn ? 'amber' : 'green');
     setProgress('pb-t3-2', 'pb-t3-2-pct', widenBps ? Math.min(100, Math.max(0, widenBps) / 200 * 100) : 0, (widenBps != null ? Math.round(widenBps) : '0') + 'bps / 200bps required', c2_t3 ? 'red' : c2_warn ? 'amber' : 'green');
 
     setCondition('ci-t3-1', 'cd-t3-1',
-      hyNowVal == null ? 'na' : c1_t3 ? 'fail' : c1_warn ? 'warn' : 'pass',
-      hyNowVal == null ? 'HY OAS data unavailable.' :
-      `ICE BofA HY OAS: <strong>${Math.round(hyNowVal * 100)}bps</strong>. Trigger is ≥ 700bps. Credit environment: ${creditEnv}. ${c1_t3 ? '⚠ CONDITION MET.' : c1_warn ? 'Elevated but below trigger.' : 'Benign credit environment.'}`
+      hyNowBps == null ? 'na' : c1_t3 ? 'fail' : c1_warn ? 'warn' : 'pass',
+      hyNowBps == null ? 'HY OAS data unavailable.' :
+      `ICE BofA HY OAS: <strong>${Math.round(hyNowBps)}bps</strong>. Trigger is ≥ 700bps. Credit environment: ${creditEnv}. ${c1_t3 ? '⚠ CONDITION MET.' : c1_warn ? 'Elevated but below trigger.' : 'Benign credit environment.'}`
     );
     setCondition('ci-t3-2', 'cd-t3-2',
       widenBps == null ? 'na' : c2_t3 ? 'fail' : c2_warn ? 'warn' : 'pass',
       widenBps == null ? '60-day prior data unavailable.' :
-      `HY OAS 60 days ago: ${hy60dVal != null ? Math.round(hy60dVal * 100) + 'bps' : '--'} → now: ${hyNowVal != null ? Math.round(hyNowVal * 100) + 'bps' : '--'}. Change: <strong>${Math.round(widenBps)}bps</strong>. Trigger is ≥ 200bps widening. ${c2_t3 ? '⚠ CONDITION MET.' : c2_warn ? 'Widening — monitor.' : 'Spread stable or tightening.'}`
+      `HY OAS 60 days ago (${D.t3.oasPriorDate}): ${Math.round(hy60dBps)}bps → now (${D.t3.oasDate}): ${Math.round(hyNowBps)}bps. Change: <strong>${Math.round(widenBps)}bps</strong>. Trigger is ≥ 200bps widening. ${c2_t3 ? '⚠ CONDITION MET.' : c2_warn ? 'Widening — monitor.' : 'Spread stable or tightening.'}`
     );
 
     const t3state = (c1_t3 && c2_t3) ? 'active' : (c1_warn || c2_warn) ? 'watching' : 'inactive';
@@ -776,10 +746,11 @@ async function runMonitor() {
   // ══════════════════════════════════════════════════════════════════════
   // T4 — VIX / VOLATILITY
   // ══════════════════════════════════════════════════════════════════════
-  stepLoading(2);
+  stepLoading(5);
   try {
-    const vixData = await fetchYahoo('%5EVIX');
-    const vix = vixData ? vixData.close : null;
+    if (!D.t4) throw new Error('T4 data missing');
+
+    const vix = D.t4.vix;
 
     const vixRegime = vix == null ? '--' :
       vix >= 45 ? 'Extreme Fear' :
@@ -792,23 +763,9 @@ async function runMonitor() {
     setMetric('m-vix-regime', vixRegime, vix != null && vix >= 35 ? 'mv-red' : vix != null && vix >= 25 ? 'mv-amber' : 'mv-green');
     setMetricSub('mt-vix', 'Trigger: > 35 | Exit: < 25 · Current: ' + (vix != null ? fmt(vix, 2) : '--'));
 
-    // Day count
-    let t4days = getState('t4_days', 0);
-    let t4startDate = getState('t4_start', null);
-    const todayStr = today();
+    // Day count — computed server-side from the actual VIX close history.
+    const t4days = D.t4.consecDays;
     const trigger35 = vix != null && vix > 35;
-
-    if (trigger35) {
-      if (t4startDate !== todayStr) {
-        t4days++;
-        setState('t4_days', t4days);
-        setState('t4_start', todayStr);
-      }
-    } else {
-      t4days = 0;
-      setState('t4_days', 0);
-      setState('t4_start', null);
-    }
 
     setMetric('m-vix-days', t4days, t4days >= 10 ? 'mv-red' : t4days >= 5 ? 'mv-amber' : 'mv-slate');
     setMetricSub('mt-vix-days', 'Required: 10 days · Current: ' + t4days + ' days');
@@ -843,10 +800,11 @@ async function runMonitor() {
   // ══════════════════════════════════════════════════════════════════════
   // T5 — YIELD CURVE INVERSION
   // ══════════════════════════════════════════════════════════════════════
-  stepLoading(3);
+  stepLoading(6);
   try {
-    const t10y2y = await getFREDLatest('T10Y2Y');
-    const spread = t10y2y ? t10y2y.value : null;
+    if (!D.t5) throw new Error('T5 data missing');
+
+    const spread = D.t5.spread;
 
     const curveStatus = spread == null ? '--' :
       spread <= -0.25 ? 'Inverted (Signal)' :
@@ -859,29 +817,10 @@ async function runMonitor() {
     setMetric('m-curve-status', curveStatus, spread != null && spread <= -0.25 ? 'mv-red' : spread != null && spread <= 0 ? 'mv-amber' : 'mv-green');
     setMetricSub('mt-t10y2y', 'Trigger: ≤ −0.25% · Current: ' + (spread != null ? fmt(spread, 2) + '%' : '--'));
 
-    // Day count (calendar days)
-    let t5days = getState('t5_days', 0);
-    let t5startDate = getState('t5_start', null);
-    const todayStr = today();
+    // Day count — calendar days since the last non-inverted reading,
+    // computed server-side from the actual T10Y2Y history.
+    const t5days = D.t5.consecDays;
     const trigger25 = spread != null && spread <= -0.25;
-
-    if (trigger25) {
-      if (t5startDate === null) {
-        setState('t5_start', todayStr);
-        t5days = 1;
-        setState('t5_days', 1);
-      } else {
-        const start = new Date(t5startDate);
-        const nowD = new Date();
-        const diffDays = Math.floor((nowD - start) / (1000 * 60 * 60 * 24));
-        t5days = diffDays + 1;
-        setState('t5_days', t5days);
-      }
-    } else {
-      t5days = 0;
-      setState('t5_days', 0);
-      setState('t5_start', null);
-    }
 
     setMetric('m-t5-days', t5days, t5days >= 60 ? 'mv-red' : t5days >= 30 ? 'mv-amber' : 'mv-slate');
     setMetricSub('mt-t5-days', 'Required: 60 calendar days · Current: ' + t5days + ' days');
