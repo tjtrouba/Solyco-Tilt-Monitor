@@ -1,0 +1,37 @@
+{
+  "generated": "2026-07-13T20:15:25.519Z",
+  "t1": {
+    "cpiYoY": 4.167,
+    "cpiDate": "2026-05-01",
+    "dgs10": 4.54,
+    "dgs10Date": "2026-07-09",
+    "dgs10Prior": 4.19,
+    "dgs10PriorDate": "2026-01-08",
+    "riseBps": 35
+  },
+  "t2": {
+    "close": 7575.39,
+    "closeDate": "2026-07-10",
+    "high52w": 7609.78,
+    "drawdown": -0.45,
+    "consecDays": 0
+  },
+  "t3": {
+    "oasBps": 269,
+    "oasDate": "2026-07-10",
+    "oasPriorBps": 279,
+    "oasPriorDate": "2026-05-11",
+    "widenBps": -10
+  },
+  "t4": {
+    "vix": 15.03,
+    "vixDate": "2026-07-10",
+    "consecDays": 0
+  },
+  "t5": {
+    "spread": 0.35,
+    "spreadDate": "2026-07-10",
+    "consecDays": 0
+  },
+  "errors": []
+}
