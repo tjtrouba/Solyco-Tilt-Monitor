@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T23:43:41.861Z",
+  "generated": "2026-09-07T23:59:33.467Z",
   "t1": {
     "cpiYoY": 3.304,
     "cpiDate": "2026-07-01",
@@ -10,10 +10,10 @@
     "riseBps": 64
   },
   "t2": {
-    "close": 7747.71,
-    "closeDate": "2026-09-03",
+    "close": 7718.6,
+    "closeDate": "2026-09-04",
     "high52w": 7798.99,
-    "drawdown": -0.66,
+    "drawdown": -1.03,
     "consecDays": 0
   },
   "t3": {
