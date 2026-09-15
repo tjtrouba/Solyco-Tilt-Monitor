@@ -1,36 +1,36 @@
 {
-  "generated": "2026-09-11T23:52:37.058Z",
+  "generated": "2026-09-15T00:17:52.917Z",
   "t1": {
     "cpiYoY": 3.353,
     "cpiDate": "2026-08-01",
-    "dgs10": 4.95,
-    "dgs10Date": "2026-09-10",
-    "dgs10Prior": 4.27,
-    "dgs10PriorDate": "2026-03-12",
+    "dgs10": 4.96,
+    "dgs10Date": "2026-09-11",
+    "dgs10Prior": 4.28,
+    "dgs10PriorDate": "2026-03-13",
     "riseBps": 68
   },
   "t2": {
-    "close": 7591.7,
-    "closeDate": "2026-09-10",
+    "close": 7619.98,
+    "closeDate": "2026-09-14",
     "high52w": 7798.99,
-    "drawdown": -2.66,
+    "drawdown": -2.3,
     "consecDays": 0
   },
   "t3": {
-    "oasBps": 270,
-    "oasDate": "2026-09-10",
+    "oasBps": 265,
+    "oasDate": "2026-09-11",
     "oasPriorBps": 269,
-    "oasPriorDate": "2026-07-10",
-    "widenBps": 1
+    "oasPriorDate": "2026-07-13",
+    "widenBps": -4
   },
   "t4": {
-    "vix": 17.84,
-    "vixDate": "2026-09-10",
+    "vix": 15.84,
+    "vixDate": "2026-09-11",
     "consecDays": 0
   },
   "t5": {
-    "spread": 0.33,
-    "spreadDate": "2026-09-11",
+    "spread": 0.32,
+    "spreadDate": "2026-09-14",
     "consecDays": 0
   },
   "errors": []
