@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-10T01:31:19.128Z",
+  "generated": "2026-10-13T02:50:11.377Z",
   "t1": {
     "cpiYoY": 3.353,
     "cpiDate": "2026-08-01",
@@ -10,10 +10,10 @@
     "riseBps": 93
   },
   "t2": {
-    "close": 7811.54,
-    "closeDate": "2026-10-09",
+    "close": 7807.24,
+    "closeDate": "2026-10-12",
     "high52w": 7818.93,
-    "drawdown": -0.09,
+    "drawdown": -0.15,
     "consecDays": 0
   },
   "t3": {
@@ -24,8 +24,8 @@
     "widenBps": 45
   },
   "t4": {
-    "vix": 15.41,
-    "vixDate": "2026-10-08",
+    "vix": 14.84,
+    "vixDate": "2026-10-09",
     "consecDays": 0
   },
   "t5": {
