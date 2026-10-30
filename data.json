@@ -1,12 +1,12 @@
 {
-  "generated": "2026-10-29T01:33:08.042Z",
+  "generated": "2026-10-30T01:33:08.353Z",
   "t1": {
     "cpiYoY": 3.717,
     "cpiDate": "2026-09-01",
-    "dgs10": 4.99,
-    "dgs10Date": "2026-10-27",
-    "dgs10Prior": 4.36,
-    "dgs10PriorDate": "2026-04-28",
+    "dgs10": 5.05,
+    "dgs10Date": "2026-10-28",
+    "dgs10Prior": 4.42,
+    "dgs10PriorDate": "2026-04-29",
     "riseBps": 63
   },
   "t2": {
@@ -17,20 +17,20 @@
     "consecDays": 0
   },
   "t3": {
-    "oasBps": 318,
-    "oasDate": "2026-10-27",
+    "oasBps": 314,
+    "oasDate": "2026-10-28",
     "oasPriorBps": 260,
     "oasPriorDate": "2026-08-28",
-    "widenBps": 58
+    "widenBps": 54
   },
   "t4": {
-    "vix": 17.52,
-    "vixDate": "2026-10-27",
+    "vix": 16.91,
+    "vixDate": "2026-10-28",
     "consecDays": 0
   },
   "t5": {
-    "spread": 0.38,
-    "spreadDate": "2026-10-28",
+    "spread": 0.37,
+    "spreadDate": "2026-10-29",
     "consecDays": 0
   },
   "errors": []
